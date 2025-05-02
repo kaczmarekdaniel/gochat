@@ -5,15 +5,17 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/kaczmarekdaniel/gochat/internal/ws"
+	"github.com/kaczmarekdaniel/gochat/internal/app"
+	"github.com/kaczmarekdaniel/gochat/internal/routes"
 )
 
 func main() {
+	app, err := app.NewApplication()
+	if err != nil {
+		panic(err)
+	}
 
-	fmt.Println("Server running on port :8080")
-
-	http.HandleFunc("/hello", ws.Hello)
-	http.HandleFunc("/ws", ws.Handler)
+	routes.SetupRoutes(app)
 
 	server := &http.Server{
 		Addr:           ":8080",
@@ -22,7 +24,7 @@ func main() {
 		MaxHeaderBytes: 1 << 20,
 	}
 
-	err := server.ListenAndServe()
+	err = server.ListenAndServe()
 	if err != nil {
 		fmt.Println("fatal error")
 	}

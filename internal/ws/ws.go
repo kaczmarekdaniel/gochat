@@ -8,13 +8,20 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+type WSHandler struct {
+}
+
+func NewWsHandler() *WSHandler {
+	return &WSHandler{}
+}
+
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
 	CheckOrigin:     func(r *http.Request) bool { return true },
 }
 
-func Hello(w http.ResponseWriter, req *http.Request) {
+func (ws *WSHandler) Hello(w http.ResponseWriter, req *http.Request) {
 	fmt.Fprintf(w, "hello\n")
 }
 
