@@ -6,9 +6,14 @@
   </head>
   <body>
     <h2>WebSocket Client</h2>
+    <select>
+      <option value="main">main</option>
+      <option value="casual">casual</option>
+    </select>
+
+    <pre id="messages"></pre>
     <input type="text" id="messageInput" placeholder="Enter message" />
     <button onclick="sendMessage()">Send</button>
-    <pre id="messages"></pre>
 
     <script>
       let socket = new WebSocket("ws://localhost:8080/ws");
@@ -19,8 +24,10 @@
       };
 
       socket.onmessage = function (event) {
+        const data = JSON.parse(event.data);
+        console.log(data);
         document.getElementById("messages").textContent +=
-          "Received: " + event.data + "\n";
+          "Received: " + data.content + "\n";
       };
 
       socket.onclose = function (event) {
@@ -28,9 +35,16 @@
           "Disconnected from WebSocket server\n";
       };
 
-      function sendMessage() {
-        let message = document.getElementById("messageInput").value;
-        socket.send(message);
+      function sendMessage(type = "chat") {
+        const message = {
+          type: type,
+          content: document.getElementById("messageInput").value,
+          sender: "user", // You might want to set this dynamically
+          time: new Date().toISOString(),
+        };
+        // socket.send(message);
+        socket.send(JSON.stringify(message));
+
         document.getElementById("messageInput").value = "";
       }
     </script>

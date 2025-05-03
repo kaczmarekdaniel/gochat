@@ -17,7 +17,7 @@ func main() {
 		MaxHeaderBytes: 1 << 20,
 	}
 
-	ws.Serve()
+	ws.Start()
 
 	err := server.ListenAndServe()
 	if err != nil {

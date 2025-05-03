@@ -1,7 +1,7 @@
 package ws
 
 import (
-	"bytes"
+	"encoding/json"
 	"log"
 	"net/http"
 	"time"
@@ -40,7 +40,7 @@ type Client struct {
 
 	conn *websocket.Conn
 
-	send chan []byte
+	send chan Message
 }
 
 // readPump pumps messages from the websocket connection to the hub
@@ -53,15 +53,23 @@ func (c *Client) readPump() {
 	c.conn.SetReadLimit(maxMessageSize)
 	c.conn.SetReadDeadline(time.Now().Add(pongWait))
 	c.conn.SetPongHandler(func(string) error { c.conn.SetReadDeadline(time.Now().Add(pongWait)); return nil })
+
 	for {
-		_, message, err := c.conn.ReadMessage()
+		_, rawMessage, err := c.conn.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
 				log.Printf("error: %v", err)
 			}
 			break
 		}
-		message = bytes.TrimSpace(bytes.Replace(message, newline, space, -1))
+
+		var message Message
+		if err := json.Unmarshal(rawMessage, &message); err != nil {
+			log.Printf("Error parsing message: %v", err)
+			// Handle error - either send an error message or create a basic message
+			continue // Skip this message if it can't be parsed
+		}
+
 		c.hub.broadcast <- message
 	}
 }
@@ -77,6 +85,7 @@ func (c *Client) writePump() {
 		ticker.Stop()
 		c.conn.Close()
 	}()
+
 	for {
 		select {
 		case message, ok := <-c.send:
@@ -87,22 +96,36 @@ func (c *Client) writePump() {
 				return
 			}
 
+			// Convert message to JSON
+			jsonMessage, err := json.Marshal(message)
+			if err != nil {
+				log.Println("error marshalling message:", err)
+				return
+			}
+
 			w, err := c.conn.NextWriter(websocket.TextMessage)
 			if err != nil {
 				return
 			}
-			w.Write(message)
+			w.Write(jsonMessage)
 
-			// Add queued chat messages to the current websocket message.
+			// Add queued messages
 			n := len(c.send)
-			for range n {
+			for i := 0; i < n; i++ {
 				w.Write(newline)
-				w.Write(<-c.send)
+				nextMsg := <-c.send
+				jsonNext, err := json.Marshal(nextMsg)
+				if err != nil {
+					log.Println("error marshalling queued message:", err)
+					continue
+				}
+				w.Write(jsonNext)
 			}
 
 			if err := w.Close(); err != nil {
 				return
 			}
+
 		case <-ticker.C:
 			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
@@ -120,7 +143,7 @@ func createClient(hub *Hub, w http.ResponseWriter, r *http.Request) {
 		log.Println(err)
 		return
 	}
-	client := &Client{hub: hub, conn: conn, send: make(chan []byte, 256)}
+	client := &Client{hub: hub, conn: conn, send: make(chan Message, 256)}
 	client.hub.register <- client
 
 	// Allow collection of memory referenced by the caller by doing all work in
