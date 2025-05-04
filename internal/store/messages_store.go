@@ -8,7 +8,8 @@ import (
 
 type Message struct {
 	ID      string    `json:"id"`
-	Type    string    `json:"type"`    // e.g., "chat", "notification", "error"
+	Type    string    `json:"type"` // e.g., "chat", "notification", "error"
+	Room    string    `json:"room"`
 	Content string    `json:"content"` // The actual message content
 	Sender  string    `json:"sender"`  // Who sent the message
 	Time    time.Time `json:"time"`    // When the message was sent
@@ -37,7 +38,7 @@ func (pg *PostgresMessagesStore) GetAllMessages() ([]*Message, error) {
 	defer tx.Rollback()
 
 	query := `
-        SELECT id, type, content, sender, time 
+        SELECT id, type, room, content, sender, time 
         FROM messages
         ORDER BY time DESC
     `
@@ -54,6 +55,7 @@ func (pg *PostgresMessagesStore) GetAllMessages() ([]*Message, error) {
 		err = rows.Scan(
 			&message.ID,
 			&message.Type,
+			&message.Room,
 			&message.Content,
 			&message.Sender,
 			&message.Time,
@@ -86,11 +88,11 @@ func (pg *PostgresMessagesStore) CreateMessage(message *Message) (*Message, erro
 	defer tx.Rollback()
 
 	query :=
-		`INSERT INTO Messages (type, content, sender, time)
-  VALUES ($1, $2, $3, $4)
+		`INSERT INTO Messages (type, room, content, sender, time)
+  VALUES ($1, $2, $3, $4, $5)
   RETURNING id
   `
-	err = tx.QueryRow(query, message.Type, message.Content, message.Sender, message.Time).Scan(&message.ID)
+	err = tx.QueryRow(query, message.Type, message.Room, message.Content, message.Sender, message.Time).Scan(&message.ID)
 	if err != nil {
 		fmt.Println("here 1")
 		return nil, err

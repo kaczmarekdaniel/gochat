@@ -2,72 +2,395 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>WebSocket Client</title>
+    <title>WebSocket Chat with Rooms</title>
   </head>
   <body>
-    <h2>WebSocket Client</h2>
+    <h2>WebSocket Chat with Rooms</h2>
+
+    <!-- Connection status -->
     <pre id="status"></pre>
 
-    <input
-      type="text"
-      id="usernameInput"
-      placeholder="Enter your name"
-      required
-    />
+    <!-- User information -->
+    <div>
+      <input
+        type="text"
+        id="usernameInput"
+        placeholder="Enter your name"
+        required
+      />
+      <button id="setUsernameBtn">Set Username</button>
+    </div>
 
-    <select>
-      <option value="main">main</option>
-      <option value="casual">casual</option>
-    </select>
+    <!-- Room Management -->
+    <div>
+      <h3>Rooms</h3>
+      <div id="roomsList"></div>
 
-    <pre id="messages"></pre>
-    <input type="text" id="messageInput" placeholder="Enter message" />
-    <button onclick="sendMessage()">Send</button>
+      <h4>Create New Room</h4>
+      <input type="text" id="newRoomInput" placeholder="Enter room name" />
+      <button id="createRoomBtn">Create Room</button>
+
+      <h4>Join Room</h4>
+      <select id="availableRooms">
+        <!-- Will be populated from server -->
+      </select>
+      <button id="joinRoomBtn">Join Selected Room</button>
+
+      <h4>Your Rooms</h4>
+      <div>
+        <select id="userRooms">
+          <!-- Will be populated from joined rooms -->
+          <option value="main">main</option>
+        </select>
+        <button id="leaveRoomBtn">Leave Room</button>
+      </div>
+
+      <h4>Active Room</h4>
+      <select id="activeRoom">
+        <option value="main">main</option>
+      </select>
+    </div>
+
+    <!-- Chat Area -->
+    <div>
+      <h3>Messages</h3>
+      <pre id="messages"></pre>
+      <input type="text" id="messageInput" placeholder="Enter message" />
+      <button id="sendMessageBtn">Send</button>
+    </div>
 
     <script>
-      let socket = new WebSocket("ws://localhost:8080/ws");
+      let socket;
+      let userId = "";
+      let activeRooms = new Set(["main"]); // Rooms the user has joined
 
-      socket.onopen = function (event) {
-        document.getElementById("status").textContent +=
-          "Connected to WebSocket server\n";
-      };
+      // DOM Elements
+      const statusEl = document.getElementById("status");
+      const usernameInput = document.getElementById("usernameInput");
+      const setUsernameBtn = document.getElementById("setUsernameBtn");
+      const roomsListEl = document.getElementById("roomsList");
+      const newRoomInput = document.getElementById("newRoomInput");
+      const createRoomBtn = document.getElementById("createRoomBtn");
+      const availableRoomsSelect = document.getElementById("availableRooms");
+      const joinRoomBtn = document.getElementById("joinRoomBtn");
+      const userRoomsSelect = document.getElementById("userRooms");
+      const leaveRoomBtn = document.getElementById("leaveRoomBtn");
+      const activeRoomSelect = document.getElementById("activeRoom");
+      const messagesEl = document.getElementById("messages");
+      const messageInput = document.getElementById("messageInput");
+      const sendMessageBtn = document.getElementById("sendMessageBtn");
 
-      socket.onmessage = function (event) {
-        const username = document.getElementById("usernameInput").value; // You might want to set this dynamically
+      // Connect to WebSocket server
+      function connectWebSocket() {
+        if (userId === "") {
+          alert("Please set a username first");
+          return;
+        }
 
-        const data = JSON.parse(event.data);
-        console.log(data);
+        // Close existing connection if any
+        if (socket && socket.readyState !== WebSocket.CLOSED) {
+          socket.close();
+        }
 
-        let displayContent = data.content
-          .replace(/&lt;/g, "<") // Replace &lt; with
-          .replace(/&gt;/g, ">") // Replace &gt; with >
-          .replace(/&quot;/g, '"') // Replace &quot; with "
-          .replace(/&#39;/g, "'") // Replace &#39; with '
-          .replace(/&amp;/g, "&"); // Replace &amp; with &
+        statusEl.textContent += "Connecting to WebSocket server...\n";
 
-        document.getElementById("messages").textContent +=
-          data.sender === username
-            ? "me > " + displayContent + "\n"
-            : data.sender + " > " + displayContent + "\n";
-      };
+        // Connect with user ID
+        socket = new WebSocket(`ws://localhost:8080/ws?user_id=${userId}`);
 
-      socket.onclose = function (event) {
-        document.getElementById("status").textContent +=
-          "Disconnected from WebSocket server\n";
-      };
+        socket.onopen = function (event) {
+          statusEl.textContent += "Connected to WebSocket server\n";
 
-      function sendMessage(type = "chat") {
+          // Fetch available rooms and user's rooms
+          fetchRooms();
+          fetchUserRooms();
+        };
+
+        socket.onmessage = function (event) {
+          const data = JSON.parse(event.data);
+          console.log("Received message:", data);
+
+          if (data.type === "system") {
+            // Handle system messages (room joins, leaves, etc.)
+            statusEl.textContent += `${data.content}\n`;
+
+            // If message indicates joining or leaving a room, refresh room lists
+            if (
+              data.content.includes("joined") ||
+              data.content.includes("left")
+            ) {
+              fetchUserRooms();
+            }
+          } else if (data.type === "room_list") {
+            // Handle room list update
+            try {
+              const rooms = JSON.parse(data.content);
+              updateUserRoomsList(rooms);
+            } catch (e) {
+              console.error("Error parsing room list:", e);
+            }
+          } else if (data.type === "error") {
+            // Handle error messages
+            statusEl.textContent += `Error: ${data.content}\n`;
+          } else {
+            // Regular chat messages
+            let displayContent = data.content
+              .replace(/&lt;/g, "<")
+              .replace(/&gt;/g, ">")
+              .replace(/&quot;/g, '"')
+              .replace(/&#39;/g, "'")
+              .replace(/&amp;/g, "&");
+
+            // Only display messages for the active room
+            if (data.room === activeRoomSelect.value) {
+              messagesEl.textContent +=
+                data.sender === userId
+                  ? "me > " + displayContent + "\n"
+                  : data.sender + " > " + displayContent + "\n";
+            }
+          }
+
+          // Always scroll messages to bottom
+          messagesEl.scrollTop = messagesEl.scrollHeight;
+        };
+
+        socket.onclose = function (event) {
+          statusEl.textContent += "Disconnected from WebSocket server\n";
+        };
+
+        socket.onerror = function (error) {
+          statusEl.textContent += `WebSocket Error: ${error}\n`;
+        };
+      }
+
+      // Fetch all available rooms
+      function fetchRooms() {
+        fetch("http://localhost:8080/rooms")
+          .then((response) => response.json())
+          .then((rooms) => {
+            // Clear existing options
+            availableRoomsSelect.innerHTML = "";
+
+            // Add each room as an option
+            rooms.forEach((room) => {
+              const option = document.createElement("option");
+              option.value = room.id;
+              option.textContent = room.name;
+              availableRoomsSelect.appendChild(option);
+            });
+          })
+          .catch((error) => {
+            console.error("Error fetching rooms:", error);
+            statusEl.textContent += `Error fetching rooms: ${error}\n`;
+          });
+      }
+
+      // Fetch rooms the user has joined
+      function fetchUserRooms() {
+        fetch(`http://localhost:8080/user-rooms?user_id=${userId}`)
+          .then((response) => response.json())
+          .then((rooms) => {
+            updateUserRoomsList(rooms);
+          })
+          .catch((error) => {
+            console.error("Error fetching user rooms:", error);
+            statusEl.textContent += `Error fetching your rooms: ${error}\n`;
+          });
+      }
+
+      // Update the user's rooms dropdown
+      function updateUserRoomsList(rooms) {
+        // Clear existing options
+        userRoomsSelect.innerHTML = "";
+        activeRoomSelect.innerHTML = "";
+
+        // Track active rooms
+        activeRooms.clear();
+
+        // Add each room as an option
+        rooms.forEach((room) => {
+          activeRooms.add(room.id);
+
+          // Add to user rooms select
+          const option1 = document.createElement("option");
+          option1.value = room.id;
+          option1.textContent = room.name;
+          userRoomsSelect.appendChild(option1);
+
+          // Add to active room select
+          const option2 = document.createElement("option");
+          option2.value = room.id;
+          option2.textContent = room.name;
+          activeRoomSelect.appendChild(option2);
+        });
+      }
+
+      // Create a new room
+      function createRoom() {
+        const roomName = newRoomInput.value.trim();
+        if (!roomName) {
+          alert("Please enter a room name");
+          return;
+        }
+
+        fetch("http://localhost:8080/rooms", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ name: roomName }),
+        })
+          .then((response) => response.json())
+          .then((room) => {
+            statusEl.textContent += `Created room: ${room.name}\n`;
+            newRoomInput.value = "";
+
+            // Refresh room lists
+            fetchRooms();
+
+            // Join the newly created room
+            joinRoom(room.id);
+          })
+          .catch((error) => {
+            console.error("Error creating room:", error);
+            statusEl.textContent += `Error creating room: ${error}\n`;
+          });
+      }
+
+      // Join a room
+      function joinRoom(roomId = null) {
+        const roomToJoin = roomId || availableRoomsSelect.value;
+
+        if (!roomToJoin) {
+          alert("Please select a room to join");
+          return;
+        }
+
+        if (socket && socket.readyState === WebSocket.OPEN) {
+          // Using WebSocket to join room
+          socket.send(
+            JSON.stringify({
+              type: "join_room",
+              content: roomToJoin,
+              sender: userId,
+              time: new Date().toISOString(),
+            }),
+          );
+        } else {
+          // Fallback to HTTP API
+          fetch("http://localhost:8080/join-room", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ user_id: userId, room_id: roomToJoin }),
+          })
+            .then((response) => response.json())
+            .then((result) => {
+              statusEl.textContent += `${result.message}\n`;
+              fetchUserRooms();
+            })
+            .catch((error) => {
+              console.error("Error joining room:", error);
+              statusEl.textContent += `Error joining room: ${error}\n`;
+            });
+        }
+      }
+
+      // Leave a room
+      function leaveRoom() {
+        const roomToLeave = userRoomsSelect.value;
+
+        if (!roomToLeave) {
+          alert("Please select a room to leave");
+          return;
+        }
+
+        if (socket && socket.readyState === WebSocket.OPEN) {
+          // Using WebSocket to leave room
+          socket.send(
+            JSON.stringify({
+              type: "leave_room",
+              content: roomToLeave,
+              sender: userId,
+              time: new Date().toISOString(),
+            }),
+          );
+        } else {
+          // Fallback to HTTP API
+          fetch("/leave-room", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ user_id: userId, room_id: roomToLeave }),
+          })
+            .then((response) => response.json())
+            .then((result) => {
+              statusEl.textContent += `${result.message}\n`;
+              fetchUserRooms();
+            })
+            .catch((error) => {
+              console.error("Error leaving room:", error);
+              statusEl.textContent += `Error leaving room: ${error}\n`;
+            });
+        }
+      }
+
+      // Send a message
+      function sendMessage() {
+        if (!socket || socket.readyState !== WebSocket.OPEN) {
+          alert("Not connected to WebSocket server");
+          return;
+        }
+
+        const messageText = messageInput.value.trim();
+        if (!messageText) {
+          return;
+        }
+
+        const activeRoom = activeRoomSelect.value;
+        if (!activeRoom || !activeRooms.has(activeRoom)) {
+          alert("Please select an active room first");
+          return;
+        }
+
         const message = {
-          type: type,
-          content: document.getElementById("messageInput").value,
-          sender: document.getElementById("usernameInput").value, // You might want to set this dynamically
+          type: "chat",
+          room: activeRoom,
+          content: messageText,
+          sender: userId,
           time: new Date().toISOString(),
         };
-        // socket.send(message);
-        socket.send(JSON.stringify(message));
 
-        document.getElementById("messageInput").value = "";
+        socket.send(JSON.stringify(message));
+        messageInput.value = "";
       }
+
+      // Event Listeners
+      setUsernameBtn.addEventListener("click", () => {
+        const username = usernameInput.value.trim();
+        if (username) {
+          userId = username;
+          statusEl.textContent += `Username set to: ${username}\n`;
+          connectWebSocket();
+        } else {
+          alert("Please enter a valid username");
+        }
+      });
+
+      createRoomBtn.addEventListener("click", createRoom);
+      joinRoomBtn.addEventListener("click", () => joinRoom());
+      leaveRoomBtn.addEventListener("click", leaveRoom);
+      sendMessageBtn.addEventListener("click", sendMessage);
+
+      messageInput.addEventListener("keypress", (event) => {
+        if (event.key === "Enter") {
+          sendMessage();
+        }
+      });
+
+      // Initialize - fetch initial rooms
+      fetchRooms();
     </script>
   </body>
 </html>

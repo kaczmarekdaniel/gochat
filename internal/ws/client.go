@@ -1,6 +1,7 @@
 package ws
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"html"
@@ -40,14 +41,12 @@ var upgrader = websocket.Upgrader{
 }
 
 type Client struct {
-	hub *Hub
+	hub    *Hub
+	conn   *websocket.Conn
+	send   chan *store.Message
+	userID string // User's identifier
+} // validateMessage checks if a message is valid
 
-	conn *websocket.Conn
-
-	send chan *store.Message
-}
-
-// validateMessage checks if a message is valid
 func validateMessage(message *store.Message) (bool, string) {
 	// Check required fields
 	if message.Type == "" {
@@ -106,45 +105,94 @@ func (c *Client) readPump() {
 		c.hub.unregister <- c
 		c.conn.Close()
 	}()
+
+	// Set connection parameters
 	c.conn.SetReadLimit(maxMessageSize)
 	c.conn.SetReadDeadline(time.Now().Add(pongWait))
-	c.conn.SetPongHandler(func(string) error { c.conn.SetReadDeadline(time.Now().Add(pongWait)); return nil })
+	c.conn.SetPongHandler(func(string) error {
+		c.conn.SetReadDeadline(time.Now().Add(pongWait))
+		return nil
+	})
 
 	for {
 		_, rawMessage, err := c.conn.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				log.Printf("error: %v", err)
+				log.Printf("Error: %v", err)
 			}
 			break
 		}
 
-		var message *store.Message
+		var message store.Message
 		if err := json.Unmarshal(rawMessage, &message); err != nil {
 			log.Printf("Error parsing message: %v", err)
-			// Handle error - either send an error message or create a basic message
-			continue // Skip this message if it can't be parsed
-		}
-
-		// sanitizeMessage(&message)
-		valid, errMsg := validateMessage(message)
-		if !valid {
-			log.Printf("Invalid message: %s", errMsg)
-
-			// Send validation error back to the client
-			errorMsg := &store.Message{
-				Type:    "error",
-				Content: fmt.Sprintf("Invalid message: %s", errMsg),
-				Sender:  "system",
-				Time:    time.Now(),
-			}
-
-			// Send directly to this client only
-			c.send <- errorMsg
 			continue
 		}
 
-		c.hub.broadcast <- message
+		// Process message based on type
+		ctx := context.Background()
+		switch message.Type {
+		case "join_room":
+			// Add user to room in database
+			if err := c.hub.roomStore.JoinRoom(ctx, c.userID, message.Room); err != nil {
+				// Send error message to client
+				c.send <- &store.Message{
+					Type:    "error",
+					Content: fmt.Sprintf("Failed to join room: %v", err),
+					Sender:  "system",
+					Time:    time.Now(),
+				}
+				continue
+			}
+
+			// Send confirmation
+			c.send <- &store.Message{
+				Type:    "system",
+				Content: fmt.Sprintf("Joined room: %s", message.Room),
+				Sender:  "system",
+				Room:    message.Room,
+				Time:    time.Now(),
+			}
+
+		case "leave_room":
+			// Remove user from room in database
+			if err := c.hub.roomStore.LeaveRoom(ctx, c.userID, message.Room); err != nil {
+				c.send <- &store.Message{
+					Type:    "error",
+					Content: fmt.Sprintf("Failed to leave room: %v", err),
+					Sender:  "system",
+					Time:    time.Now(),
+				}
+				continue
+			}
+
+			// Send confirmation
+			c.send <- &store.Message{
+				Type:    "system",
+				Content: fmt.Sprintf("Left room: %s", message.Room),
+				Sender:  "system",
+				Room:    message.Room,
+				Time:    time.Now(),
+			}
+
+		case "chat":
+			// Check if user is in this room
+			isInRoom, err := c.hub.roomStore.IsUserInRoom(ctx, c.userID, message.Room)
+			if err != nil || !isInRoom {
+				c.send <- &store.Message{
+					Type:    "error",
+					Content: "You are not a member of this room",
+					Sender:  "system",
+					Room:    message.Room,
+					Time:    time.Now(),
+				}
+				continue
+			}
+
+			// Set sender ID and broadcast message
+			message.Sender = c.userID
+			c.hub.broadcast <- &message
+		}
 	}
 }
 
@@ -212,16 +260,28 @@ func (c *Client) writePump() {
 //
 
 func createClient(hub *Hub, w http.ResponseWriter, r *http.Request) {
+	// Get user ID from query parameter or cookie
+	userID := r.URL.Query().Get("user_id")
+	if userID == "" {
+		// Could use a UUID if no user ID provided
+		userID = "dan"
+	}
+
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println(err)
 		return
 	}
-	client := &Client{hub: hub, conn: conn, send: make(chan *store.Message, 256)}
+
+	client := &Client{
+		hub:    hub,
+		conn:   conn,
+		send:   make(chan *store.Message, 256),
+		userID: userID,
+	}
+
 	client.hub.register <- client
 
-	// Allow collection of memory referenced by the caller by doing all work in
-	// new goroutines.
 	go client.writePump()
 	go client.readPump()
 }
