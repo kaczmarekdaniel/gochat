@@ -13,4 +13,7 @@ func Start(app *app.Application) {
 	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
 		createClient(hub, w, r)
 	})
+
+	http.HandleFunc("/init", app.MessageHandler.HandleGetAllMesssages)
+
 }

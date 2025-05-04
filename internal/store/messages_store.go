@@ -24,6 +24,56 @@ func NewPostgresMessageStore(db *sql.DB) *PostgresMessagesStore {
 
 type MessageStore interface {
 	CreateMessage(*Message) (*Message, error)
+	GetAllMessages() ([]*Message, error)
+}
+
+func (pg *PostgresMessagesStore) GetAllMessages() ([]*Message, error) {
+	tx, err := pg.db.Begin()
+	if err != nil {
+		fmt.Println("here")
+
+		return nil, err
+	}
+	defer tx.Rollback()
+
+	query := `
+        SELECT id, type, content, sender, time 
+        FROM messages
+        ORDER BY time DESC
+    `
+
+	rows, err := tx.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var messages []*Message
+	for rows.Next() {
+		message := &Message{}
+		err = rows.Scan(
+			&message.ID,
+			&message.Type,
+			&message.Content,
+			&message.Sender,
+			&message.Time,
+		)
+		if err != nil {
+			return nil, err
+		}
+		messages = append(messages, message)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return nil, err
+	}
+
+	return messages, nil
 }
 
 func (pg *PostgresMessagesStore) CreateMessage(message *Message) (*Message, error) {

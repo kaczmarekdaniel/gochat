@@ -1,7 +1,9 @@
 package api
 
 import (
+	"encoding/json"
 	"fmt"
+	"net/http"
 
 	"github.com/kaczmarekdaniel/gochat/internal/store"
 )
@@ -14,6 +16,21 @@ func NewMessageHandler(messageStore store.MessageStore) *MessageHandler {
 	return &MessageHandler{
 		messageStore: messageStore,
 	}
+}
+
+func (wh *MessageHandler) HandleGetAllMesssages(w http.ResponseWriter, r *http.Request) {
+
+	messages, err := wh.messageStore.GetAllMessages()
+	if err != nil {
+		fmt.Println(err)
+		http.Error(w, "failed to retrieve the messages", http.StatusInternalServerError)
+
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(messages)
 }
 
 func (wh *MessageHandler) HandleCreateMessage(messageRaw *store.Message) (*store.Message, error) {
