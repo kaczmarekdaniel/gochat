@@ -9,7 +9,6 @@ import (
 func Start(app *app.Application) {
 	hub := newHub(app.RoomStore, app.MessageStore)
 
-	// Start the hub in a goroutine
 	go hub.run()
 
 	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {

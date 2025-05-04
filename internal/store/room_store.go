@@ -14,7 +14,6 @@ type Room struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
-// RoomStore interface defines operations for room management
 type RoomStore interface {
 	// Get all available rooms
 	GetRooms(ctx context.Context) ([]*Room, error)
@@ -38,12 +37,10 @@ type RoomStore interface {
 	IsUserInRoom(ctx context.Context, userID, roomID string) (bool, error)
 }
 
-// PostgresRoomStore implements RoomStore using PostgreSQL
 type PostgresRoomStore struct {
 	db *sql.DB
 }
 
-// NewPostgresRoomStore creates a new PostgreSQL-backed room store
 func NewPostgresRoomStore(db *sql.DB) *PostgresRoomStore {
 	return &PostgresRoomStore{db: db}
 }

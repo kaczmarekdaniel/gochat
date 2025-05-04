@@ -213,12 +213,10 @@ func (c *Client) writePump() {
 		case message, ok := <-c.send:
 			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if !ok {
-				// The hub closed the channel.
 				c.conn.WriteMessage(websocket.CloseMessage, []byte{})
 				return
 			}
 
-			// Convert message to JSON
 			jsonMessage, err := json.Marshal(message)
 			if err != nil {
 				log.Println("error marshalling message:", err)
@@ -231,7 +229,6 @@ func (c *Client) writePump() {
 			}
 			w.Write(jsonMessage)
 
-			// Add queued messages
 			n := len(c.send)
 			for range n {
 				w.Write(newline)
@@ -260,11 +257,10 @@ func (c *Client) writePump() {
 //
 
 func createClient(hub *Hub, w http.ResponseWriter, r *http.Request) {
-	// Get user ID from query parameter or cookie
 	userID := r.URL.Query().Get("user_id")
 	if userID == "" {
-		// Could use a UUID if no user ID provided
-		userID = "dan"
+		http.Error(w, "user id is mandatory", http.StatusInternalServerError)
+		return
 	}
 
 	conn, err := upgrader.Upgrade(w, r, nil)

@@ -38,7 +38,6 @@ func (wh *MessageHandler) HandleCreateMessage(messageRaw *store.Message) (*store
 		return nil, fmt.Errorf("message content cannot be empty")
 	}
 
-	// Now you can pass the message to your store
 	createdMessage, err := wh.messageStore.CreateMessage(messageRaw)
 	if err != nil {
 		fmt.Println(err)

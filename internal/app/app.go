@@ -89,7 +89,6 @@ func NewApplication() (*Application, error) {
 
 	logger := log.New(os.Stdout, "", log.Ldate|log.Ltime)
 
-	// out handlers will go here
 	messageStore := store.NewPostgresMessageStore(pgDB)
 	roomStore := store.NewPostgresRoomStore(pgDB)
 
@@ -97,7 +96,6 @@ func NewApplication() (*Application, error) {
 	roomHandler := api.NewRoomHandler(roomStore)
 	messageHandler := api.NewMessageHandler(messageStore)
 
-	// Initialize application
 	app := &Application{
 		MessageStore:   messageStore,
 		MessageHandler: messageHandler,
@@ -110,6 +108,6 @@ func NewApplication() (*Application, error) {
 	return app, nil
 }
 
-func (a *Application) HealthCheck(w http.ResponseWriter, r *http.Request) { // w - communicate back to the caller. r- request, this is what we get
-	fmt.Fprint(w, "status is available") // fprint is specifically used to send data back to the caller/client
+func (a *Application) HealthCheck(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprint(w, "status is available")
 }
