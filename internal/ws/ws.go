@@ -2,19 +2,14 @@ package ws
 
 import (
 	"net/http"
-	"time"
+
+	"github.com/kaczmarekdaniel/gochat/internal/app"
 )
 
-type Message struct {
-	Type    string    `json:"type"`    // e.g., "chat", "notification", "error"
-	Content string    `json:"content"` // The actual message content
-	Sender  string    `json:"sender"`  // Who sent the message
-	Time    time.Time `json:"time"`    // When the message was sent
-}
-
-func Start() {
+func Start(app *app.Application) {
 	hub := newHub()
-	go hub.run()
+	go hub.run(app)
+
 	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
 		createClient(hub, w, r)
 	})

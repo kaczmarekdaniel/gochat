@@ -6,6 +6,15 @@
   </head>
   <body>
     <h2>WebSocket Client</h2>
+    <pre id="status"></pre>
+
+    <input
+      type="text"
+      id="usernameInput"
+      placeholder="Enter your name"
+      required
+    />
+
     <select>
       <option value="main">main</option>
       <option value="casual">casual</option>
@@ -19,19 +28,31 @@
       let socket = new WebSocket("ws://localhost:8080/ws");
 
       socket.onopen = function (event) {
-        document.getElementById("messages").textContent +=
+        document.getElementById("status").textContent +=
           "Connected to WebSocket server\n";
       };
 
       socket.onmessage = function (event) {
+        const username = document.getElementById("usernameInput").value; // You might want to set this dynamically
+
         const data = JSON.parse(event.data);
         console.log(data);
+
+        let displayContent = data.content
+          .replace(/&lt;/g, "<") // Replace &lt; with
+          .replace(/&gt;/g, ">") // Replace &gt; with >
+          .replace(/&quot;/g, '"') // Replace &quot; with "
+          .replace(/&#39;/g, "'") // Replace &#39; with '
+          .replace(/&amp;/g, "&"); // Replace &amp; with &
+
         document.getElementById("messages").textContent +=
-          "Received: " + data.content + "\n";
+          data.sender === username
+            ? "me > " + displayContent + "\n"
+            : data.sender + " > " + displayContent + "\n";
       };
 
       socket.onclose = function (event) {
-        document.getElementById("messages").textContent +=
+        document.getElementById("status").textContent +=
           "Disconnected from WebSocket server\n";
       };
 
@@ -39,7 +60,7 @@
         const message = {
           type: type,
           content: document.getElementById("messageInput").value,
-          sender: "user", // You might want to set this dynamically
+          sender: document.getElementById("usernameInput").value, // You might want to set this dynamically
           time: new Date().toISOString(),
         };
         // socket.send(message);

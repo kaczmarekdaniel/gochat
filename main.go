@@ -5,10 +5,13 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/kaczmarekdaniel/gochat/internal/app"
 	"github.com/kaczmarekdaniel/gochat/internal/ws"
 )
 
 func main() {
+
+	app, err := app.NewApplication()
 
 	server := &http.Server{
 		Addr:           ":8080",
@@ -17,9 +20,9 @@ func main() {
 		MaxHeaderBytes: 1 << 20,
 	}
 
-	ws.Start()
+	ws.Start(app)
 
-	err := server.ListenAndServe()
+	err = server.ListenAndServe()
 	if err != nil {
 		fmt.Println("fatal error")
 	}

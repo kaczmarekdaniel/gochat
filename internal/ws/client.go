@@ -2,11 +2,15 @@ package ws
 
 import (
 	"encoding/json"
+	"fmt"
+	"html"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/kaczmarekdaniel/gochat/internal/store"
 )
 
 const (
@@ -40,11 +44,63 @@ type Client struct {
 
 	conn *websocket.Conn
 
-	send chan Message
+	send chan *store.Message
+}
+
+// validateMessage checks if a message is valid
+func validateMessage(message *store.Message) (bool, string) {
+	// Check required fields
+	if message.Type == "" {
+		return false, "message type is required"
+	}
+
+	if message.Content == "" {
+		return false, "message content is required"
+	}
+
+	if message.Sender == "" {
+		return false, "message sender is required"
+	}
+
+	validTypes := map[string]bool{
+		"chat":         true,
+		"notification": true,
+		"system":       true,
+		"error":        true,
+	}
+
+	if !validTypes[message.Type] {
+		return false, fmt.Sprintf("invalid message type: %s", message.Type)
+	}
+
+	if len(message.Content) > 1000 {
+		return false, "message content exceeds maximum length of 1000 characters"
+	}
+
+	if len(message.Sender) > 50 {
+		return false, "sender name exceeds maximum length of 50 characters"
+	}
+
+	// Add other validations as needed:
+	// - Check for profanity in content
+	// - Validate message format for specific types
+	// - Rate limiting (number of messages per minute)
+
+	return true, ""
+}
+
+func sanitizeMessage(message *store.Message) {
+	// HTML escape the content to prevent XSS attacks
+	message.Content = html.EscapeString(message.Content)
+
+	// Trim whitespace
+	message.Content = strings.TrimSpace(message.Content)
+
+	message.Sender = html.EscapeString(message.Sender)
+	message.Sender = strings.TrimSpace(message.Sender)
 }
 
 // readPump pumps messages from the websocket connection to the hub
-
 func (c *Client) readPump() {
 	defer func() {
 		c.hub.unregister <- c
@@ -63,11 +119,29 @@ func (c *Client) readPump() {
 			break
 		}
 
-		var message Message
+		var message *store.Message
 		if err := json.Unmarshal(rawMessage, &message); err != nil {
 			log.Printf("Error parsing message: %v", err)
 			// Handle error - either send an error message or create a basic message
 			continue // Skip this message if it can't be parsed
+		}
+
+		// sanitizeMessage(&message)
+		valid, errMsg := validateMessage(message)
+		if !valid {
+			log.Printf("Invalid message: %s", errMsg)
+
+			// Send validation error back to the client
+			errorMsg := &store.Message{
+				Type:    "error",
+				Content: fmt.Sprintf("Invalid message: %s", errMsg),
+				Sender:  "system",
+				Time:    time.Now(),
+			}
+
+			// Send directly to this client only
+			c.send <- errorMsg
+			continue
 		}
 
 		c.hub.broadcast <- message
@@ -111,7 +185,7 @@ func (c *Client) writePump() {
 
 			// Add queued messages
 			n := len(c.send)
-			for i := 0; i < n; i++ {
+			for range n {
 				w.Write(newline)
 				nextMsg := <-c.send
 				jsonNext, err := json.Marshal(nextMsg)
@@ -143,7 +217,7 @@ func createClient(hub *Hub, w http.ResponseWriter, r *http.Request) {
 		log.Println(err)
 		return
 	}
-	client := &Client{hub: hub, conn: conn, send: make(chan Message, 256)}
+	client := &Client{hub: hub, conn: conn, send: make(chan *store.Message, 256)}
 	client.hub.register <- client
 
 	// Allow collection of memory referenced by the caller by doing all work in
