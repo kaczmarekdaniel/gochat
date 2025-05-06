@@ -84,6 +84,7 @@ func (rh *RoomHandler) HandleUserRooms(w http.ResponseWriter, r *http.Request) {
 
 	userID := r.URL.Query().Get("user_id")
 	if userID == "" {
+		fmt.Println("User ID is required")
 		http.Error(w, "User ID is required", http.StatusBadRequest)
 		return
 	}
