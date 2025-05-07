@@ -138,7 +138,7 @@ func (c *Client) readPump() {
 				// Send error message to client
 				c.send <- &store.Message{
 					Type:    "error",
-					Content: fmt.Sprintf("Failed to join room: %v", err),
+					Content: fmt.Sprintf("Failed to join room on server: %v", err),
 					Sender:  "system",
 					Time:    time.Now(),
 				}

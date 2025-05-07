@@ -9,8 +9,8 @@ import (
 	"os"
 
 	"github.com/kaczmarekdaniel/gochat/internal/api"
-	"github.com/kaczmarekdaniel/gochat/internal/migrations"
 	"github.com/kaczmarekdaniel/gochat/internal/store"
+	"github.com/kaczmarekdaniel/gochat/migrations"
 )
 
 type Application struct {
@@ -22,7 +22,6 @@ type Application struct {
 	RoomHandler    *api.RoomHandler
 }
 
-// Create a RoomHandler similar to your MessageHandler
 type RoomHandler struct {
 	roomStore store.RoomStore
 }
