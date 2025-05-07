@@ -23,7 +23,7 @@ func NewPostgresUserStore(db *sql.DB) *PostgresUserStore {
 
 type UserStore interface {
 	CreateUser(*User) (*User, error)
-	GetUser() ([]*User, error)
+	GetUser(id string) (*User, error)
 }
 
 func (pg *PostgresUserStore) GetUser(id string) (*User, error) {

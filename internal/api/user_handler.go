@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/kaczmarekdaniel/gochat/internal/store"
+	"github.com/kaczmarekdaniel/gochat/internal/utils"
 )
 
 type UserHandler struct {
@@ -20,7 +21,16 @@ func NewUserHandler(userStore store.UserStore) *UserHandler {
 
 func (wh *UserHandler) HandleGetUser(w http.ResponseWriter, r *http.Request) {
 
-	messages, err := wh.userStore.GetUser()
+	var user store.User
+	err := json.NewDecoder(r.Body).Decode(&r)
+	if err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	userID := user.ID
+
+	messages, err := wh.userStore.GetUser(userID)
 	if err != nil {
 		fmt.Println(err)
 		http.Error(w, "failed to retrieve the messages", http.StatusInternalServerError)
