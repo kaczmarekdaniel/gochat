@@ -10,7 +10,7 @@ type User struct {
 	ID             string    `json:"id"`
 	Username       string    `json:"username"`
 	ProfilePicture string    `json:"profile_picture"`
-	CreatedAt      time.Time `json:"created_at"` // When the message was sent
+	CreatedAt      time.Time `json:"created_at"`
 }
 
 type PostgresUserStore struct {
@@ -71,7 +71,6 @@ func (pg *PostgresUserStore) CreateUser(user *User) (*User, error) {
   `
 	err = tx.QueryRow(query, user.ID, user.Username, user.ProfilePicture, user.CreatedAt).Scan(&user.ID)
 	if err != nil {
-		fmt.Println("here 1")
 		return nil, err
 	}
 

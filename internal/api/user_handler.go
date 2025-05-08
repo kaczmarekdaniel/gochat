@@ -6,7 +6,6 @@ import (
 	"net/http"
 
 	"github.com/kaczmarekdaniel/gochat/internal/store"
-	"github.com/kaczmarekdaniel/gochat/internal/utils"
 )
 
 type UserHandler struct {
@@ -55,4 +54,12 @@ func (wh *UserHandler) HandleCreateUser(userRaw *store.User) (*store.User, error
 	}
 
 	return userCreated, nil
+}
+
+func (wh *UserHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
+
+	// 1. Find the user by id
+	// 2. Compare passwords
+	// 3. if it's ok, generate the session
+
 }
