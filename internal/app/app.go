@@ -20,6 +20,8 @@ type Application struct {
 	MessageStore   store.MessageStore
 	RoomStore      store.RoomStore
 	RoomHandler    *api.RoomHandler
+	UserHandler    *api.UserHandler
+	SessionHandler *api.SessionHandler
 }
 
 type RoomHandler struct {
@@ -90,14 +92,20 @@ func NewApplication() (*Application, error) {
 
 	messageStore := store.NewPostgresMessageStore(pgDB)
 	roomStore := store.NewPostgresRoomStore(pgDB)
+	userStore := store.NewPostgresUserStore(pgDB)
+	sessionStore := store.NewPostgresSessionStore(pgDB)
 
 	// Create handlers
 	roomHandler := api.NewRoomHandler(roomStore)
 	messageHandler := api.NewMessageHandler(messageStore)
+	userHandler := api.NewUserHandler(userStore)
+	sessionHandler := api.NewSessionHandler(sessionStore)
 
 	app := &Application{
 		MessageStore:   messageStore,
 		MessageHandler: messageHandler,
+		UserHandler:    userHandler,
+		SessionHandler: sessionHandler,
 		RoomStore:      roomStore,
 		Logger:         logger,
 		RoomHandler:    roomHandler,

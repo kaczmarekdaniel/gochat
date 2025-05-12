@@ -9,6 +9,7 @@ import (
 type User struct {
 	ID             string    `json:"id"`
 	Username       string    `json:"username"`
+	Password       string    `json:"password"`
 	ProfilePicture string    `json:"profile_picture"`
 	CreatedAt      time.Time `json:"created_at"`
 }
@@ -26,50 +27,56 @@ type UserStore interface {
 	GetUser(id string) (*User, error)
 }
 
-func (pg *PostgresUserStore) GetUser(id string) (*User, error) {
-	tx, err := pg.db.Begin()
-
-	if err != nil {
-		fmt.Println("here")
-
-		return nil, err
+func (pg *PostgresUserStore) GetUser(username string) (*User, error) {
+	// Check if id is empty
+	if username == "" {
+		return nil, fmt.Errorf("username cannot be empty")
 	}
-	defer tx.Rollback()
 
 	user := &User{}
-
 	query := `
-    SELECT id, title, description, duration_minutes, calories_burned
-    FROM users
-    WHERE id = $1
-  `
+        SELECT id, username, profile_picture, created_at
+        FROM users
+        WHERE username = $1
+    `
+	err := pg.db.QueryRow(query, username).Scan(&user.ID, &user.Username, &user.ProfilePicture, &user.CreatedAt)
 
-	err = pg.db.QueryRow(query, id).Scan(&user.ID, &user.Username, &user.ProfilePicture, &user.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
-
 	if err != nil {
 		return nil, err
 	}
+
 	return user, nil
 }
 
 func (pg *PostgresUserStore) CreateUser(user *User) (*User, error) {
 	tx, err := pg.db.Begin()
 	if err != nil {
-		fmt.Println("here")
-
 		return nil, err
 	}
 	defer tx.Rollback()
 
-	query :=
-		`INSERT INTO Users (type, room, content, sender, time)
-  VALUES ($1, $2, $3, $4, $5)
-  RETURNING id
-  `
-	err = tx.QueryRow(query, user.ID, user.Username, user.ProfilePicture, user.CreatedAt).Scan(&user.ID)
+	// Set creation time if not already set
+	if user.CreatedAt.IsZero() {
+		user.CreatedAt = time.Now()
+	}
+
+	query := `
+		INSERT INTO users (username, password, profile_picture, created_at)
+		VALUES ($1, $2, $3, $4)
+		RETURNING id
+	`
+
+	err = tx.QueryRow(
+		query,
+		user.Username,
+		user.Password,
+		user.ProfilePicture,
+		user.CreatedAt,
+	).Scan(&user.ID)
+
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +86,6 @@ func (pg *PostgresUserStore) CreateUser(user *User) (*User, error) {
 		return nil, err
 	}
 
-	fmt.Println("user successfully created", user)
-
+	fmt.Println("User successfully created:", user.Username)
 	return user, nil
 }
