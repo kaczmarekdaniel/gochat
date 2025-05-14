@@ -21,7 +21,7 @@ func NewSessionHandler(sessionStore store.SessionStore) *SessionHandler {
 func (wh *SessionHandler) HandleGetSessionByToken(w http.ResponseWriter, r *http.Request) {
 
 	var session store.Session
-	err := json.NewDecoder(r.Body).Decode(&r)
+	err := json.NewDecoder(r.Body).Decode(&session)
 	if err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
@@ -50,12 +50,4 @@ func (wh *SessionHandler) HandleCreateSession(sessionRaw *store.Session) (*store
 	}
 
 	return sessionCreated, nil
-}
-
-func (wh *SessionHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
-
-	// 1. Find the session by id
-	// 2. Compare passwords
-	// 3. if it's ok, generate the session
-
 }

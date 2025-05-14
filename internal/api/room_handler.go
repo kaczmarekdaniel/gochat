@@ -20,7 +20,6 @@ func NewRoomHandler(roomStore store.RoomStore) *RoomHandler {
 
 // HandleRooms handles GET and POST requests for rooms
 func (rh *RoomHandler) HandleRooms(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Access-Control-Allow-Origin", "*")
 
 	switch r.Method {
 	case http.MethodGet:
@@ -80,7 +79,6 @@ func (rh *RoomHandler) handleCreateRoom(w http.ResponseWriter, r *http.Request) 
 
 // HandleUserRooms gets rooms for a specific user
 func (rh *RoomHandler) HandleUserRooms(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Access-Control-Allow-Origin", "*") // Allow any origin
 
 	userID := r.URL.Query().Get("user_id")
 	if userID == "" {
@@ -114,11 +112,12 @@ func (rh *RoomHandler) HandleJoinRoom(w http.ResponseWriter, r *http.Request) {
 		RoomID string `json:"room_id"`
 	}
 
+	fmt.Println("handle join room", joinRequest)
 	if err := json.NewDecoder(r.Body).Decode(&joinRequest); err != nil {
+		fmt.Println(err)
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
-	fmt.Println(joinRequest)
 	if joinRequest.UserID == "" || joinRequest.RoomID == "" {
 		http.Error(w, "User ID and Room ID are required", http.StatusBadRequest)
 		return

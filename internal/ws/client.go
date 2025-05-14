@@ -134,6 +134,7 @@ func (c *Client) readPump() {
 		switch message.Type {
 		case "join_room":
 			// Add user to room in database
+			fmt.Println(c.userID, message.Room, "tried to connect to a room")
 			if err := c.hub.roomStore.JoinRoom(ctx, c.userID, message.Room); err != nil {
 				// Send error message to client
 				c.send <- &store.Message{
@@ -262,6 +263,8 @@ func createClient(hub *Hub, w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "user id is mandatory", http.StatusInternalServerError)
 		return
 	}
+
+	fmt.Println("new client created", userID)
 
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {

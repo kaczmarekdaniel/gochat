@@ -224,6 +224,8 @@ func (s *PostgresRoomStore) JoinRoom(ctx context.Context, userID, roomID string)
 	}
 	defer tx.Rollback()
 
+	fmt.Println(userID, roomID, ctx)
+
 	query := `
         INSERT INTO room_memberships (user_id, room_id)
         VALUES ($1, $2)

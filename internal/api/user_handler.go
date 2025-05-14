@@ -44,13 +44,11 @@ func (uh *UserHandler) HandleGetUser(w http.ResponseWriter, r *http.Request) (*s
 }
 
 func (uh *UserHandler) HandleCreateUser(w http.ResponseWriter, r *http.Request) {
-	// Check if the request method is POST
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	// Parse the request body
 	var userRaw store.User
 	err := json.NewDecoder(r.Body).Decode(&userRaw)
 	if err != nil {
@@ -58,19 +56,16 @@ func (uh *UserHandler) HandleCreateUser(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Validate username
 	if userRaw.Username == "" {
 		http.Error(w, "Username cannot be empty", http.StatusBadRequest)
 		return
 	}
 
-	// Validate password
 	if userRaw.Password == "" {
 		http.Error(w, "Password cannot be empty", http.StatusBadRequest)
 		return
 	}
 
-	// Hash the password before storing it
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(userRaw.Password), bcrypt.DefaultCost)
 	if err != nil {
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
@@ -78,10 +73,8 @@ func (uh *UserHandler) HandleCreateUser(w http.ResponseWriter, r *http.Request) 
 	}
 	userRaw.Password = string(hashedPassword)
 
-	// Create the user in the database
 	userCreated, err := uh.userStore.CreateUser(&userRaw)
 	if err != nil {
-		// Check for specific error types
 		if strings.Contains(err.Error(), "duplicate") || strings.Contains(err.Error(), "unique constraint") {
 			http.Error(w, "Username already exists", http.StatusConflict)
 			return
@@ -92,19 +85,16 @@ func (uh *UserHandler) HandleCreateUser(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Return success response with the created user
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated) // 201 Created is more appropriate than 200 OK
+	w.WriteHeader(http.StatusCreated)
 
-	// Create a sanitized response (don't include password)
-	// Adjust this based on your actual User struct fields
-	userResponse := map[string]interface{}{
+	userResponse := map[string]any{
 		"id":         userCreated.ID,
 		"username":   userCreated.Username,
 		"created_at": userCreated.CreatedAt,
 	}
 
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	json.NewEncoder(w).Encode(map[string]any{
 		"success": true,
 		"message": "User created successfully",
 		"user":    userResponse,
