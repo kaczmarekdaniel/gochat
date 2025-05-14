@@ -283,4 +283,5 @@ func createClient(hub *Hub, w http.ResponseWriter, r *http.Request) {
 
 	go client.writePump()
 	go client.readPump()
+
 }

@@ -50,19 +50,15 @@ func SetupRoutes(app *app.Application) {
 		if err != nil {
 			fmt.Println(err)
 
-			// Set the content type to application/json
 			w.Header().Set("Content-Type", "application/json")
 
-			// Set the status code
 			w.WriteHeader(http.StatusUnauthorized)
 
-			// Create and encode the error response as JSON
 			errorResponse := map[string]string{
 				"message": "Authentication failed",
 				"success": "false",
 			}
 
-			// Encode the map to JSON and write to response
 			json.NewEncoder(w).Encode(errorResponse)
 			return
 		}
@@ -120,11 +116,11 @@ func SetupRoutes(app *app.Application) {
 	})
 
 	http.HandleFunc("/create-user", app.UserHandler.HandleCreateUser)
-	http.HandleFunc("/user-rooms", withMiddleware(app.RoomHandler.HandleUserRooms))
 
 	// dev endpoints
 	http.HandleFunc("/join-room", withMiddleware(app.RoomHandler.HandleJoinRoom))
 	http.HandleFunc("/leave-room", app.RoomHandler.HandleLeaveRoom)
+	http.HandleFunc("/user-rooms", withMiddleware(app.RoomHandler.HandleUserRooms))
 	http.HandleFunc("/rooms", withMiddleware(app.RoomHandler.HandleRooms))
 	http.HandleFunc("/init", withMiddleware(app.MessageHandler.HandleGetAllMesssages))
 
