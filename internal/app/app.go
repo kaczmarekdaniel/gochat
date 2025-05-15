@@ -22,6 +22,7 @@ type Application struct {
 	RoomHandler    *api.RoomHandler
 	UserHandler    *api.UserHandler
 	SessionHandler *api.SessionHandler
+	AuthHandler    *api.AuthHandler
 }
 
 type RoomHandler struct {
@@ -101,15 +102,20 @@ func NewApplication() (*Application, error) {
 	userHandler := api.NewUserHandler(userStore)
 	sessionHandler := api.NewSessionHandler(sessionStore)
 
+	authHandler := api.NewAuthHandler(userStore, sessionStore)
+
 	app := &Application{
-		MessageStore:   messageStore,
+		MessageStore: messageStore,
+		RoomStore:    roomStore,
+
 		MessageHandler: messageHandler,
 		UserHandler:    userHandler,
 		SessionHandler: sessionHandler,
-		RoomStore:      roomStore,
-		Logger:         logger,
+		AuthHandler:    authHandler,
 		RoomHandler:    roomHandler,
-		DB:             pgDB,
+
+		DB:     pgDB,
+		Logger: logger,
 	}
 
 	return app, nil
