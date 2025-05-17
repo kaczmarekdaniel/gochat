@@ -18,9 +18,9 @@ func NewMessageHandler(messageStore store.MessageStore) *MessageHandler {
 	}
 }
 
-func (wh *MessageHandler) HandleGetAllMesssages(w http.ResponseWriter, r *http.Request) {
+func (wh *MessageHandler) HandleGetMesssages(w http.ResponseWriter, r *http.Request) {
 
-	messages, err := wh.messageStore.GetAllMessages()
+	messages, err := wh.messageStore.GetMessages("123") // TODO: FIX IT
 	if err != nil {
 		fmt.Println(err)
 		http.Error(w, "failed to retrieve the messages", http.StatusInternalServerError)

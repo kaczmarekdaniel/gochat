@@ -17,7 +17,7 @@ func SetupRoutes(app *app.Application) {
 	// 	middleware.WithCORS,
 	// }
 
-	http.HandleFunc("/login", app.AuthHandler.HandleLogin)
+	http.HandleFunc("/login", middleware.Chain(app.AuthHandler.HandleLogin, standardMiddleware...))
 
 	http.HandleFunc("/create-user", app.UserHandler.HandleCreateUser)
 
@@ -25,7 +25,7 @@ func SetupRoutes(app *app.Application) {
 	http.HandleFunc("/join-room", middleware.Chain(app.RoomHandler.HandleJoinRoom, standardMiddleware...))
 	http.HandleFunc("/leave-room", middleware.Chain(app.RoomHandler.HandleLeaveRoom, standardMiddleware...))
 	http.HandleFunc("/user-rooms", middleware.Chain(app.RoomHandler.HandleUserRooms, standardMiddleware...))
-	// http.HandleFunc("/rooms", withMiddleware(app.RoomHandler.HandleRooms))
-	// http.HandleFunc("/init", withMiddleware(app.MessageHandler.HandleGetAllMesssages))
+	http.HandleFunc("/rooms", middleware.Chain(app.RoomHandler.HandleRooms, standardMiddleware...))
+	// http.HandleFunc("/init", withMiddleware(app.MessageHandler.HandleGetMesssages))
 
 }

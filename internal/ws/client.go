@@ -179,6 +179,7 @@ func (c *Client) readPump() {
 		case "chat":
 			// Check if user is in this room
 			isInRoom, err := c.hub.roomStore.IsUserInRoom(ctx, c.userID, message.Room)
+			fmt.Println(err, "user:", c.userID, "message:", message)
 			if err != nil || !isInRoom {
 				c.send <- &store.Message{
 					Type:    "error",

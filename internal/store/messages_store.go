@@ -25,13 +25,12 @@ func NewPostgresMessageStore(db *sql.DB) *PostgresMessagesStore {
 
 type MessageStore interface {
 	CreateMessage(*Message) (*Message, error)
-	GetAllMessages() ([]*Message, error)
+	GetMessages(roomId string) ([]*Message, error)
 }
 
-func (pg *PostgresMessagesStore) GetAllMessages() ([]*Message, error) {
+func (pg *PostgresMessagesStore) GetMessages(roomId string) ([]*Message, error) {
 	tx, err := pg.db.Begin()
 	if err != nil {
-		fmt.Println("here")
 
 		return nil, err
 	}
@@ -40,10 +39,11 @@ func (pg *PostgresMessagesStore) GetAllMessages() ([]*Message, error) {
 	query := `
         SELECT id, type, room, content, sender, time 
         FROM messages
+        WHERE room = $1 
         ORDER BY time DESC
     `
 
-	rows, err := tx.Query(query)
+	rows, err := tx.Query(query, roomId)
 	if err != nil {
 		return nil, err
 	}
