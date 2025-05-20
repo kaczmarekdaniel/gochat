@@ -89,7 +89,6 @@ func validateMessage(message *store.Message) (bool, string) {
 }
 
 func sanitizeMessage(message *store.Message) {
-	// HTML escape the content to prevent XSS attacks
 	message.Content = html.EscapeString(message.Content)
 
 	// Trim whitespace
@@ -265,7 +264,7 @@ func createClient(hub *Hub, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Println("new client created", userID)
+	fmt.Println("new websocket client created", userID)
 
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {

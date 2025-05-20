@@ -81,8 +81,6 @@ func (pg *PostgresMessagesStore) GetMessages(roomId string) ([]*Message, error) 
 func (pg *PostgresMessagesStore) CreateMessage(message *Message) (*Message, error) {
 	tx, err := pg.db.Begin()
 	if err != nil {
-		fmt.Println("here")
-
 		return nil, err
 	}
 	defer tx.Rollback()
@@ -94,7 +92,6 @@ func (pg *PostgresMessagesStore) CreateMessage(message *Message) (*Message, erro
   `
 	err = tx.QueryRow(query, message.Type, message.Room, message.Content, message.Sender, message.Time).Scan(&message.ID)
 	if err != nil {
-		fmt.Println("here 1")
 		return nil, err
 	}
 
@@ -104,6 +101,5 @@ func (pg *PostgresMessagesStore) CreateMessage(message *Message) (*Message, erro
 	}
 
 	fmt.Println("message successfully created", message)
-
 	return message, nil
 }

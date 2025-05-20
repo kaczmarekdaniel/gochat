@@ -24,7 +24,6 @@ func (wh *MessageHandler) HandleGetMesssages(w http.ResponseWriter, r *http.Requ
 	if err != nil {
 		fmt.Println(err)
 		http.Error(w, "failed to retrieve the messages", http.StatusInternalServerError)
-
 		return
 	}
 
